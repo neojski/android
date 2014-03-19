@@ -4,6 +4,8 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 import android.app.Activity;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.Menu;
 import android.widget.TextView;
@@ -13,6 +15,7 @@ public class MainActivity extends Activity {
 	long startTime;
 	long resumeTime;
 	long previousForegroundTime;
+	int count;
 	
 	private long getTime() {
 		return System.currentTimeMillis();
@@ -61,6 +64,21 @@ public class MainActivity extends Activity {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
+			
+		SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
+		count = prefs.getInt("count", 1);
+		
+		SharedPreferences.Editor editor = prefs.edit();
+		editor.putInt("count", count+1);
+		editor.commit();
+		
+		runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				TextView counterView = (TextView) findViewById(R.id.counter);
+				counterView.setText("counter: " + count);
+			}
+		});
 		
 		startTime = getTime();
 	}
@@ -71,5 +89,4 @@ public class MainActivity extends Activity {
 		getMenuInflater().inflate(R.menu.main, menu);
 		return true;
 	}
-
 }
