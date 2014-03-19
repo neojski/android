@@ -7,5 +7,6 @@
     <string name="counter">counter</string>
     <string name="foreground_time">foreground_time</string>
     <string name="total_time">total_time</string>
+    <string name="current_foreground_time">current_foreground_time</string>
 
 </resources>
