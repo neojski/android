@@ -72,13 +72,8 @@ public class MainActivity extends Activity {
 		editor.putInt("count", count+1);
 		editor.commit();
 		
-		runOnUiThread(new Runnable() {
-			@Override
-			public void run() {
-				TextView counterView = (TextView) findViewById(R.id.counter);
-				counterView.setText("counter: " + count);
-			}
-		});
+		TextView counterView = (TextView) findViewById(R.id.counter);
+		counterView.setText("counter: " + count);
 		
 		startTime = getTime();
 	}
