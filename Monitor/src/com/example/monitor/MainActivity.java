@@ -11,6 +11,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemLongClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -18,12 +20,14 @@ import android.widget.ListView;
 
 public class MainActivity extends Activity {
 	private ArrayAdapter<String> adapter;
-	
+	private ArrayList<String> list;
+
 	private void addURL() {
 		EditText editText = (EditText) findViewById(R.id.editText1);
 		adapter.add(editText.getText().toString());
+		editText.setText("");
 	}
-	
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -33,12 +37,23 @@ public class MainActivity extends Activity {
 			getFragmentManager().beginTransaction()
 					.add(R.id.container, new PlaceholderFragment()).commit();
 		}
-		
-		ArrayList<String> list = new ArrayList<String>();
-		adapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, list);
+
+		list = new ArrayList<String>();
+		adapter = new ArrayAdapter<String>(this,
+				android.R.layout.simple_list_item_1, list);
 		ListView listView = (ListView) findViewById(R.id.listView1);
 		listView.setAdapter(adapter);
-		
+
+		listView.setOnItemLongClickListener(new OnItemLongClickListener() {
+			@Override
+			public boolean onItemLongClick(AdapterView<?> parent, View view,
+					int position, long id) {
+				list.remove(position);
+				adapter.notifyDataSetChanged();
+				return true;
+			}
+		});
+
 		Button button = (Button) findViewById(R.id.button1);
 		button.setOnClickListener(new OnClickListener() {
 			@Override
@@ -81,7 +96,7 @@ public class MainActivity extends Activity {
 				Bundle savedInstanceState) {
 			View rootView = inflater.inflate(R.layout.fragment_main, container,
 					false);
-			
+
 			return rootView;
 		}
 	}
