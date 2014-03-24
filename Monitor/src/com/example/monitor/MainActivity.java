@@ -29,14 +29,21 @@ public class MainActivity extends Activity {
 
 	private void addURL() {
 		EditText editText = (EditText) findViewById(R.id.editText1);
-		adapter.add(editText.getText().toString());
+		String url = editText.getText().toString();
+		adapter.add(url);
 		editText.setText("");
+		
+		Intent intent = new Intent(this, MonitorService.class);
+		intent.putExtra("add", url);
+		startService(intent);
 	}
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
+		
+		final Context ctx = this;
 
 		if (savedInstanceState == null) {
 			getFragmentManager().beginTransaction()
@@ -53,8 +60,14 @@ public class MainActivity extends Activity {
 			@Override
 			public boolean onItemLongClick(AdapterView<?> parent, View view,
 					int position, long id) {
+				// notify Service
+				Intent intent = new Intent(ctx, MonitorService.class);
+				intent.putExtra("remove", list.get(position));
+				startService(intent);
+				
 				list.remove(position);
 				adapter.notifyDataSetChanged();
+				
 				return true;
 			}
 		});
