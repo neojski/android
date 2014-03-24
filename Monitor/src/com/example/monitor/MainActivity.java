@@ -1,9 +1,14 @@
 package com.example.monitor;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 
 import android.app.Activity;
+import android.app.AlarmManager;
 import android.app.Fragment;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -27,7 +32,7 @@ public class MainActivity extends Activity {
 		adapter.add(editText.getText().toString());
 		editText.setText("");
 	}
-
+	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -61,6 +66,16 @@ public class MainActivity extends Activity {
 				addURL();
 			}
 		});
+
+		// start service every 10 seconds
+		Calendar cal = Calendar.getInstance();
+
+		Intent intent = new Intent(this, MonitorService.class);
+		PendingIntent pintent = PendingIntent.getService(this, 0, intent, 0);
+
+		AlarmManager alarm = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+		alarm.setRepeating(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis(),
+				10 * 1000, pintent);
 	}
 
 	@Override

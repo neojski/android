@@ -22,6 +22,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:name="MonitorService"
+            android:label="@string/service_name" >
+        </service>
     </application>
 
 </manifest>
