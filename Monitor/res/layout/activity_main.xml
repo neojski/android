@@ -20,8 +20,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:inputType="textUri"
-                android:ems="10" >
+                android:ems="10"
+                android:inputType="textUri" >
 
                 <requestFocus />
             </EditText>
@@ -31,16 +31,20 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Button" />
-
+                android:text="Addd" />
         </LinearLayout>
+
+        <Button
+            android:id="@+id/button2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Check now" />
 
         <ListView
             android:id="@+id/listView1"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" >
+            android:layout_height="326dp" >
         </ListView>
-
     </LinearLayout>
 
 </FrameLayout>
