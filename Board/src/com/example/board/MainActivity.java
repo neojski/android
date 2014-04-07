@@ -2,6 +2,9 @@ package com.example.board;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Scanner;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -10,6 +13,8 @@ import javax.xml.parsers.ParserConfigurationException;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -32,12 +37,8 @@ import android.view.MotionEvent;
 import android.view.View;
 
 public class MainActivity extends Activity {
-
-	// private final String stateURL =
-	// "http://grzegorz_gutowski.staff.tcs.uj.edu.pl/board/state/";
-	private final String stateURL = "http://192.168.1.26:8000/state.xml";
-
-	DrawingView dv;
+	private final String stateURL = "http://grzegorzgutowski.staff.tcs.uj.edu.pl/board/state/";
+	private final String uploadURL = "http://grzegorzgutowski.staff.tcs.uj.edu.pl/board/newpath/";
 	private Paint mPaint;
 
 	private InputStream downloadUrl(String urlString) throws IOException {
@@ -45,13 +46,6 @@ public class MainActivity extends Activity {
 		HttpGet get = new HttpGet(stateURL);
 		HttpResponse resp = client.execute(get);
 		return resp.getEntity().getContent();
-
-		/*
-		 * HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-		 * conn.setReadTimeout(10000); conn.setConnectTimeout(15000);
-		 * conn.setRequestMethod("GET"); conn.setDoInput(true); conn.connect();
-		 * InputStream stream = conn.getInputStream(); return stream;
-		 */
 	}
 
 	private class DownloadBoardState extends AsyncTask<String, Void, Document> {
@@ -100,26 +94,86 @@ public class MainActivity extends Activity {
 			scheduleUpdate();
 		}
 	}
-	
+
 	private void scheduleUpdate() {
 		new Handler().postDelayed(new Runnable() {
 			@Override
 			public void run() {
-				new DownloadBoardState().execute(stateURL);	
+				new DownloadBoardState().execute(stateURL);
 			};
 		}, 1000);
 	}
 
+	private String buildUploadXML(List<Point> polyline) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("<?xml version='1.0'?><newpath userId='");
+		sb.append(deviceId);
+		sb.append("'>");
+
+		for (Point point : polyline) {
+			sb.append(point.toString());
+		}
+
+		sb.append("</newpath>");
+		return sb.toString();
+	}
+
+	private class UploadBoardState extends AsyncTask<List<Point>, Void, String> {
+		@Override
+		protected String doInBackground(List<Point>... params) {
+			Log.d("upload", "background");
+			try {
+				HttpClient client = new DefaultHttpClient();
+				HttpPost post = new HttpPost(uploadURL);
+				StringEntity stringEntity = null;
+				stringEntity = new StringEntity(buildUploadXML(params[0]));
+				post.setEntity(stringEntity);
+				
+				Log.d("upload", buildUploadXML(params[0]));
+
+				HttpResponse resp;
+
+				resp = client.execute(post);
+
+				InputStream content = resp.getEntity().getContent();
+
+				Scanner scanner = new Scanner(content);
+				String result = "";
+				while (scanner.hasNextLine()) {
+					result += scanner.nextLine();
+				}
+				Log.d("upload", result);
+			} catch (IOException e) {
+				Log.e("upload", "error", e);
+			}
+			return "";
+		}
+	}
+
+	public void uploadPoints(final List<Point> polyline) {
+		new Handler().post(new Runnable() {
+			@Override
+			public void run() {
+				// chunk polyline to 50 points (server restriction)
+				for (int i = 0; i < polyline.size(); i += 50) {
+					new UploadBoardState().execute(polyline.subList(i, Math.min(i+50, polyline.size())));
+				}
+			}
+		});
+	}
+
+	private String deviceId;
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		dv = new DrawingView(this);
-		setContentView(dv);
+
+		setContentView(new DrawingView(this));
 		mPaint = getPaint(Color.GREEN);
 
 		TelephonyManager mngr = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
-		mngr.getDeviceId();
-		
+		deviceId = mngr.getDeviceId();
+
 		scheduleUpdate();
 	}
 
@@ -140,11 +194,26 @@ public class MainActivity extends Activity {
 		return mPaint;
 	}
 
+	private class Point {
+		public float x;
+		public float y;
+
+		public Point(float _x, float _y) {
+			x = _x;
+			y = _y;
+		}
+		@Override
+		public String toString() {
+			return "<point x='" + x + "' y='" + y + "'/>";
+		}
+	}
+
 	public class DrawingView extends View {
 
 		private Path mPath;
 		private Paint circlePaint;
 		private Path circlePath;
+		private List<Point> currentPolyline;
 
 		public DrawingView(Context c) {
 			super(c);
@@ -181,13 +250,15 @@ public class MainActivity extends Activity {
 		}
 
 		private float mX, mY;
-		private static final float TOUCH_TOLERANCE = 100;
+		private static final float TOUCH_TOLERANCE = 5;
 
 		private void touch_start(float x, float y) {
 			mPath.reset();
 			mPath.moveTo(x, y);
 			mX = x;
 			mY = y;
+			
+			currentPolyline = new LinkedList<Point>();
 		}
 
 		private void touch_move(float x, float y) {
@@ -200,6 +271,8 @@ public class MainActivity extends Activity {
 
 				circlePath.reset();
 				circlePath.addCircle(mX, mY, 30, Path.Direction.CW);
+				
+				currentPolyline.add(new Point(x/width, y/height));
 			}
 		}
 
@@ -210,6 +283,8 @@ public class MainActivity extends Activity {
 			canvas.drawPath(mPath, mPaint);
 			// kill this so we don't double draw
 			mPath.reset();
+
+			uploadPoints(currentPolyline);
 		}
 
 		@Override
@@ -234,4 +309,5 @@ public class MainActivity extends Activity {
 			return true;
 		}
 	}
+
 }
