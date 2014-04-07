@@ -1,0 +1,4 @@
+Lines upload strategy:
+1. once drawn on screen lines are cached and their upload started
+2. once upload is finished lines are marked as uploaded
+3. before we start checking upstream changes we remember already uploaded lines. These lines we can remove after we download upstream changes (they are already there)

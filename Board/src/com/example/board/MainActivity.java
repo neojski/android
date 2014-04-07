@@ -2,9 +2,11 @@ package com.example.board;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -49,9 +51,12 @@ public class MainActivity extends Activity {
 	}
 
 	private class DownloadBoardState extends AsyncTask<String, Void, Document> {
+		Set<List<Point>> linesUploadedBeforeStart = new HashSet<List<Point>>();
 
 		@Override
 		protected Document doInBackground(String... params) {
+			linesUploadedBeforeStart.addAll(uploadedLines);
+			
 			try {
 				InputStream stream = downloadUrl(stateURL);
 
@@ -71,13 +76,14 @@ public class MainActivity extends Activity {
 
 		@Override
 		protected void onPostExecute(Document doc) {
+			canvas.drawColor(Color.parseColor("#ffffff"));
+
 			NodeList paths = doc.getElementsByTagName("path");
 			for (int i = 0; i < paths.getLength(); i++) {
 				Element path = (Element) paths.item(i);
 				String color = path.getAttribute("color");
 
 				Paint paint = getPaint(Color.parseColor(color));
-
 				NodeList points = path.getElementsByTagName("point");
 				for (int j = 0; j < points.getLength() - 1; j++) {
 					Element point1 = (Element) points.item(j);
@@ -91,17 +97,21 @@ public class MainActivity extends Activity {
 							paint);
 				}
 			}
-			scheduleUpdate();
+			removeUploadedLines(linesUploadedBeforeStart);
+			dv.invalidate();
+			scheduleUpdate(1000);
 		}
+
+		
 	}
 
-	private void scheduleUpdate() {
+	private void scheduleUpdate(int delay) {
 		new Handler().postDelayed(new Runnable() {
 			@Override
 			public void run() {
 				new DownloadBoardState().execute(stateURL);
 			};
-		}, 1000);
+		}, delay);
 	}
 
 	private String buildUploadXML(List<Point> polyline) {
@@ -118,35 +128,51 @@ public class MainActivity extends Activity {
 		return sb.toString();
 	}
 
-	private class UploadBoardState extends AsyncTask<List<Point>, Void, String> {
+	private class UploadBoardState extends
+			AsyncTask<List<Point>, Void, Boolean> {
+		List<Point> polyline;
+
 		@Override
-		protected String doInBackground(List<Point>... params) {
+		protected Boolean doInBackground(List<Point>... params) {
+			polyline = params[0];
 			Log.d("upload", "background");
 			try {
-				HttpClient client = new DefaultHttpClient();
-				HttpPost post = new HttpPost(uploadURL);
-				StringEntity stringEntity = null;
-				stringEntity = new StringEntity(buildUploadXML(params[0]));
-				post.setEntity(stringEntity);
-				
-				Log.d("upload", buildUploadXML(params[0]));
+				// chunk polyline to 50 points (server restriction)
+				for (int i = 0; i < polyline.size(); i += 50) {
+					List<Point> chunk = polyline.subList(i,
+							Math.min(i + 50, polyline.size()));
 
-				HttpResponse resp;
+					HttpClient client = new DefaultHttpClient();
+					HttpPost post = new HttpPost(uploadURL);
+					StringEntity stringEntity = null;
+					stringEntity = new StringEntity(buildUploadXML(chunk));
+					post.setEntity(stringEntity);
 
-				resp = client.execute(post);
+					HttpResponse resp;
 
-				InputStream content = resp.getEntity().getContent();
+					resp = client.execute(post);
 
-				Scanner scanner = new Scanner(content);
-				String result = "";
-				while (scanner.hasNextLine()) {
-					result += scanner.nextLine();
+					InputStream content = resp.getEntity().getContent();
+
+					Scanner scanner = new Scanner(content);
+					String result = "";
+					while (scanner.hasNextLine()) {
+						result += scanner.nextLine();
+					}
+					Log.d("upload", result);
 				}
-				Log.d("upload", result);
 			} catch (IOException e) {
 				Log.e("upload", "error", e);
+				return false;
 			}
-			return "";
+			return true;
+		}
+
+		@Override
+		protected void onPostExecute(Boolean success) {
+			if (success) {
+				lineUploaded(polyline);
+			}
 		}
 	}
 
@@ -154,27 +180,27 @@ public class MainActivity extends Activity {
 		new Handler().post(new Runnable() {
 			@Override
 			public void run() {
-				// chunk polyline to 50 points (server restriction)
-				for (int i = 0; i < polyline.size(); i += 50) {
-					new UploadBoardState().execute(polyline.subList(i, Math.min(i+50, polyline.size())));
-				}
+				// XXX: thank you java for being crap with generics!
+				new UploadBoardState().execute(polyline);
 			}
 		});
 	}
 
 	private String deviceId;
+	private DrawingView dv;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
-		setContentView(new DrawingView(this));
-		mPaint = getPaint(Color.GREEN);
+		dv = new DrawingView(this);
+		setContentView(dv);
+		mPaint = getPaint(Color.RED);
 
 		TelephonyManager mngr = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
 		deviceId = mngr.getDeviceId();
 
-		scheduleUpdate();
+		scheduleUpdate(0);
 	}
 
 	private Bitmap mBitmap;
@@ -202,11 +228,23 @@ public class MainActivity extends Activity {
 			x = _x;
 			y = _y;
 		}
+
 		@Override
 		public String toString() {
 			return "<point x='" + x + "' y='" + y + "'/>";
 		}
 	}
+
+	public void lineUploaded(List<Point> polyline) {
+		uploadedLines.add(polyline);
+	}
+	private void removeUploadedLines(Set<List<Point>> linesUploadedBeforeStart) {
+		cachedLines.removeAll(linesUploadedBeforeStart);
+		uploadedLines.removeAll(linesUploadedBeforeStart);
+	}
+	
+	private Set<List<Point>> cachedLines = new HashSet<List<Point>>();
+	private Set<List<Point>> uploadedLines = new HashSet<List<Point>>();
 
 	public class DrawingView extends View {
 
@@ -244,9 +282,19 @@ public class MainActivity extends Activity {
 
 			canvas.drawBitmap(mBitmap, 0, 0, null);
 
-			canvas.drawPath(mPath, mPaint);
+			canvas.drawPath(mPath, getPaint(Color.RED));
 
 			canvas.drawPath(circlePath, circlePaint);
+			
+			// draw all not-yet-uploaded polylines
+			for (List<Point> polyline : cachedLines) {
+				for (int i = 0; i < polyline.size() - 1; i++) {
+					Point p1 = polyline.get(i);
+					Point p2 = polyline.get(i+1);
+					
+					canvas.drawLine(p1.x * width, p1.y * height, p2.x * width, p2.y * height, getPaint(Color.BLUE));					
+				}
+			}
 		}
 
 		private float mX, mY;
@@ -257,7 +305,7 @@ public class MainActivity extends Activity {
 			mPath.moveTo(x, y);
 			mX = x;
 			mY = y;
-			
+
 			currentPolyline = new LinkedList<Point>();
 		}
 
@@ -271,20 +319,19 @@ public class MainActivity extends Activity {
 
 				circlePath.reset();
 				circlePath.addCircle(mX, mY, 30, Path.Direction.CW);
-				
-				currentPolyline.add(new Point(x/width, y/height));
+
+				currentPolyline.add(new Point(x / width, y / height));
 			}
 		}
 
 		private void touch_up() {
 			mPath.lineTo(mX, mY);
 			circlePath.reset();
-			// commit the path to our offscreen
-			canvas.drawPath(mPath, mPaint);
 			// kill this so we don't double draw
 			mPath.reset();
 
 			uploadPoints(currentPolyline);
+			cachedLines.add(currentPolyline);
 		}
 
 		@Override
