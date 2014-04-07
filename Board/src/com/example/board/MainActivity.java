@@ -41,7 +41,6 @@ import android.view.View;
 public class MainActivity extends Activity {
 	private final String stateURL = "http://grzegorzgutowski.staff.tcs.uj.edu.pl/board/state/";
 	private final String uploadURL = "http://grzegorzgutowski.staff.tcs.uj.edu.pl/board/newpath/";
-	private Paint mPaint;
 
 	private InputStream downloadUrl(String urlString) throws IOException {
 		HttpClient client = new DefaultHttpClient();
@@ -56,7 +55,7 @@ public class MainActivity extends Activity {
 		@Override
 		protected Document doInBackground(String... params) {
 			linesUploadedBeforeStart.addAll(uploadedLines);
-			
+
 			try {
 				InputStream stream = downloadUrl(stateURL);
 
@@ -102,7 +101,6 @@ public class MainActivity extends Activity {
 			scheduleUpdate(1000);
 		}
 
-		
 	}
 
 	private void scheduleUpdate(int delay) {
@@ -195,7 +193,6 @@ public class MainActivity extends Activity {
 
 		dv = new DrawingView(this);
 		setContentView(dv);
-		mPaint = getPaint(Color.RED);
 
 		TelephonyManager mngr = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
 		deviceId = mngr.getDeviceId();
@@ -238,11 +235,12 @@ public class MainActivity extends Activity {
 	public void lineUploaded(List<Point> polyline) {
 		uploadedLines.add(polyline);
 	}
+
 	private void removeUploadedLines(Set<List<Point>> linesUploadedBeforeStart) {
 		cachedLines.removeAll(linesUploadedBeforeStart);
 		uploadedLines.removeAll(linesUploadedBeforeStart);
 	}
-	
+
 	private Set<List<Point>> cachedLines = new HashSet<List<Point>>();
 	private Set<List<Point>> uploadedLines = new HashSet<List<Point>>();
 
@@ -285,14 +283,15 @@ public class MainActivity extends Activity {
 			canvas.drawPath(mPath, getPaint(Color.RED));
 
 			canvas.drawPath(circlePath, circlePaint);
-			
+
 			// draw all not-yet-uploaded polylines
 			for (List<Point> polyline : cachedLines) {
 				for (int i = 0; i < polyline.size() - 1; i++) {
 					Point p1 = polyline.get(i);
-					Point p2 = polyline.get(i+1);
-					
-					canvas.drawLine(p1.x * width, p1.y * height, p2.x * width, p2.y * height, getPaint(Color.BLUE));					
+					Point p2 = polyline.get(i + 1);
+
+					canvas.drawLine(p1.x * width, p1.y * height, p2.x * width,
+							p2.y * height, getPaint(Color.BLUE));
 				}
 			}
 		}
@@ -307,6 +306,7 @@ public class MainActivity extends Activity {
 			mY = y;
 
 			currentPolyline = new LinkedList<Point>();
+			currentPolyline.add(new Point(x / width, y / height));
 		}
 
 		private void touch_move(float x, float y) {
