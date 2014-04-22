@@ -1,0 +1,3 @@
+The server registers (in memory) applications and then broadcasts the message to all devices.
+
+It's important to put your API key (see android gcm tutorial) into apikey file (as the only string)
